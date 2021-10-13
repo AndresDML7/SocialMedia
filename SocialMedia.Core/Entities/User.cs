@@ -7,20 +7,23 @@ using System.Collections.Generic;
 
 namespace SocialMedia.Core.Entities
 {
-    public partial class Post
+    public partial class User
     {
-        public Post()
+        public User()
         {
             Comments = new HashSet<Comment>();
+            Posts = new HashSet<Post>();
         }
 
-        public int PostId { get; set; }
         public int UserId { get; set; }
-        public DateTime Date { get; set; }
-        public string Description { get; set; }
-        public string Image { get; set; }
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string Email { get; set; }
+        public DateTime BirthDate { get; set; }
+        public string Phone { get; set; }
+        public bool IsActive { get; set; }
 
-        public virtual User User { get; set; }
         public virtual ICollection<Comment> Comments { get; set; }
+        public virtual ICollection<Post> Posts { get; set; }
     }
 }
