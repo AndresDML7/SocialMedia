@@ -1,8 +1,17 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
+using SocialMedia.Api.Responses;
+using SocialMedia.Core.CustomEntities;
 using SocialMedia.Core.DTOs;
 using SocialMedia.Core.Entities;
 using SocialMedia.Core.Interfaces;
+using SocialMedia.Core.QueryFilters;
+using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 
 namespace SocialMedia.Api.Controllers
@@ -11,58 +20,77 @@ namespace SocialMedia.Api.Controllers
     [ApiController]
     public class PostController : ControllerBase
     {
-        private readonly IPostRepository _postRepository;
+        private readonly IPostService _postService;
+        private readonly IMapper _mapper;
 
-        public PostController(IPostRepository postRepository)
+        public PostController(IPostService postService, IMapper mapper)
         {
-            _postRepository = postRepository;
+            _postService = postService;
+            _mapper = mapper;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetPosts()
+        [ProducesResponseType((int)HttpStatusCode.OK)]
+        [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+        public IActionResult GetPosts([FromQuery]PostQueryFilter filters)
         {
-            var posts = await _postRepository.GetPosts();
-            var postsDto = posts.Select(x => new PostDto
-            {
-                PostId = x.PostId,
-                Date = x.Date,
-                Description = x.Description,
-                Image = x.Image,
-                UserId = x.UserId
-            });
+            var posts =  _postService.GetPosts(filters);
+            var postsDto = _mapper.Map<IEnumerable<PostDto>>(posts);
+            var response = new ApiResponse<IEnumerable<PostDto>>(postsDto);
 
-            return Ok(postsDto);
+            var metadata = new
+            {
+                posts.TotalCount,
+                posts.PageSize,
+                posts.CurrentPage,
+                posts.TotalPages,
+                posts.HasNextPage,
+                posts.HasPreviousPage
+            };
+
+            Response.Headers.Add("X-Pagination", JsonConvert.SerializeObject(metadata));
+            return Ok(response);
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetPost(int id)
         {
-            var post = await _postRepository.GetPost(id);
-            var postDto = new PostDto
-            {
-                PostId = post.PostId,
-                Date = post.Date,
-                Description = post.Description,
-                Image = post.Image,
-                UserId = post.UserId
-            };
+            var post = await _postService.GetPost(id);
+            var postDto = _mapper.Map<PostDto>(post);
+            var response = new ApiResponse<PostDto>(postDto);
 
-            return Ok(postDto);
+            return Ok(response);
         }
 
         [HttpPost]
         public async Task<IActionResult> Post(PostDto postDto)
         {
-            var post = new Post
-            {
-                Date = postDto.Date,
-                Description = postDto.Description,
-                Image = postDto.Image,
-                UserId = postDto.UserId
-            };
+            var post = _mapper.Map<Post>(postDto);
 
-            await _postRepository.InsertPost(post);
-            return Ok(post);
+            await _postService.InsertPost(post);
+
+            postDto = _mapper.Map<PostDto>(post);
+            var response = new ApiResponse<PostDto>(postDto);
+            return Ok(response);
+        }
+
+        [HttpPut]
+        public async Task<IActionResult> Put(int id, PostDto postDto)
+        {
+            var post = _mapper.Map<Post>(postDto);
+            post.Id = id; 
+
+            var result = await _postService.UpdatePost(post);
+            var response = new ApiResponse<bool>(result);
+            return Ok(response);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var result = await _postService.DeletePost(id);
+            var response = new ApiResponse<bool>(result);
+            return Ok(response);
         }
 
     }
